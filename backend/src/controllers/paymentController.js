@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma.js";
 import { paymentService } from "../services/paymentService.js";
 import { notificationService } from "../services/notificationService.js";
-
-const prisma = new PrismaClient();
 
 export async function createPaymentOrder(req, res) {
   try {

@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma.js";
 import { mapsService } from "../services/mapsService.js";
 import { notificationService } from "../services/notificationService.js";
-
-const prisma = new PrismaClient();
 
 const SERVICE_RATES = {
   Electrical: 450,

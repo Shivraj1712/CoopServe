@@ -1,0 +1,15 @@
+{
+  "appId": "in.coopserve.app",
+  "appName": "CoopServe",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#E65100"
+    }
+  }
+}

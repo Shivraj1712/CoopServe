@@ -1,0 +1,96 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  role         String // CUSTOMER, WORKER, FEDERATION_ADMIN
+  name         String
+  email        String   @unique
+  phone        String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workerProfile    Worker?
+  customerBookings Booking[] @relation("CustomerBookings")
+}
+
+model Cooperative {
+  id             String   @id @default(uuid())
+  name           String
+  federationName String
+  state          String
+  city           String
+  createdAt      DateTime @default(now())
+
+  workers Worker[]
+}
+
+model Worker {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  cooperativeId      String
+  skillCategory      String // Electrician, Plumber, Carpenter, Painter, Caregiver, Driver, Gardener, Domestic Helper
+  serviceArea        String
+  lat                Float    @default(23.0225) // Default Ahmedabad center
+  lng                Float    @default(72.5714)
+  verificationStatus String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  ratingAvg          Float    @default(5.0)
+  isAvailable        Boolean  @default(true)
+  experienceYears    Int      @default(3)
+  bio                String?
+  createdAt          DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id])
+  bookings    Booking[]   @relation("WorkerBookings")
+}
+
+model Booking {
+  id               String   @id @default(uuid())
+  customerId       String
+  workerId         String?
+  serviceCategory  String
+  status           String   @default("REQUESTED") // REQUESTED, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+  lat              Float    @default(23.0225)
+  lng              Float    @default(72.5714)
+  address          String
+  scheduledAt      String   @default("ASAP")
+  amount           Float
+  commissionAmount Float // 10% Co-op federation fund
+  workerPayout     Float // 90% Worker payout
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customer User     @relation("CustomerBookings", fields: [customerId], references: [id])
+  worker   Worker?  @relation("WorkerBookings", fields: [workerId], references: [id])
+  payment  Payment?
+  rating   Rating?
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  bookingId         String   @unique
+  razorpayOrderId   String?  @default("MOCK_ORDER_123")
+  razorpayPaymentId String?  @default("MOCK_PAY_123")
+  status            String   @default("SUCCESS") // PENDING, SUCCESS, FAILED
+  amount            Float
+  createdAt         DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  bookingId String   @unique
+  stars     Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}

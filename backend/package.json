@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
     "dev": "nodemon src/index.js",
     "prisma:push": "prisma db push",
     "db:seed": "node prisma/seed.js"

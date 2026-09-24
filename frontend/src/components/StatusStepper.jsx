@@ -27,6 +27,8 @@ export default function StatusStepper({ status, hasRating }) {
         return 3;
       case "PAID":
         return hasRating ? 5 : 4;
+      case "CANCELLED":
+        return -1;
       default:
         return 0;
     }

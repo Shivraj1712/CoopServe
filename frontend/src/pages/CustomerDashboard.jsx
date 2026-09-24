@@ -220,6 +220,8 @@ export default function CustomerDashboard() {
       cat.desc.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const activeBookings = bookings.filter((b) => b.status !== "CANCELLED");
+
   return (
     <DashboardLayout activeTab={activeTab} onTabChange={(t) => { setActiveTab(t); setSubPage(null); }}>
       
@@ -503,7 +505,32 @@ export default function CustomerDashboard() {
                 <Typography variant="h5" fontWeight={800} color="#0F172A">
                   CoopServe Official Receipt
                 </Typography>
-                <Chip label="PAID & VERIFIED" color="success" size="small" sx={{ fontWeight: 800 }} />
+                <Chip
+                  label={
+                    activeBooking.status === "PAID"
+                      ? "PAID & VERIFIED"
+                      : activeBooking.status === "CANCELLED"
+                      ? "CANCELLED"
+                      : activeBooking.status === "COMPLETED"
+                      ? "COMPLETED"
+                      : activeBooking.status === "IN_PROGRESS"
+                      ? "IN PROGRESS"
+                      : activeBooking.status === "ACCEPTED"
+                      ? "WORKER MATCHED"
+                      : "REQUESTED"
+                  }
+                  color={
+                    activeBooking.status === "PAID"
+                      ? "success"
+                      : activeBooking.status === "CANCELLED"
+                      ? "error"
+                      : activeBooking.status === "COMPLETED"
+                      ? "info"
+                      : "warning"
+                  }
+                  size="small"
+                  sx={{ fontWeight: 800 }}
+                />
               </Box>
 
               <Typography variant="caption" color="text.secondary" display="block">
@@ -518,6 +545,12 @@ export default function CustomerDashboard() {
                   <Typography variant="body1" fontWeight={700}>{activeBooking.serviceCategory}</Typography>
                 </Grid>
                 <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" display="block">Current Stage / Status</Typography>
+                  <Typography variant="body1" fontWeight={700} color={activeBooking.status === "CANCELLED" ? "error.main" : "primary.main"}>
+                    {activeBooking.status}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
                   <Typography variant="caption" color="text.secondary" display="block">Customer Name</Typography>
                   <Typography variant="body1" fontWeight={700}>{user?.name}</Typography>
                 </Grid>
@@ -526,7 +559,7 @@ export default function CustomerDashboard() {
                   <Typography variant="body1" fontWeight={700}>{activeBooking.worker?.user?.name || "Verified Co-op Worker"}</Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary" display="block">Payment Date</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">Date</Typography>
                   <Typography variant="body1" fontWeight={700}>{new Date(activeBooking.updatedAt || Date.now()).toLocaleDateString()}</Typography>
                 </Grid>
               </Grid>
@@ -706,7 +739,7 @@ export default function CustomerDashboard() {
                   </Grid>
                 ))}
               </Grid>
-            ) : bookings.length === 0 ? (
+            ) : activeBookings.length === 0 ? (
               <Paper elevation={0} sx={{ p: 5, textAlign: "center", border: "1px dashed #CBD5E1", bgcolor: "#FFFFFF" }}>
                 <Typography variant="h6" fontWeight={700} color="text.secondary" gutterBottom>
                   No active job orders placed
@@ -717,7 +750,7 @@ export default function CustomerDashboard() {
               </Paper>
             ) : (
               <Grid container spacing={3}>
-                {bookings.map((b) => (
+                {activeBookings.map((b) => (
                   <Grid item xs={12} key={b.id}>
                     <Card sx={{ p: 3, border: "1px solid #E2E8F0", borderRadius: 2 }}>
                       <Grid container spacing={2} alignItems="center">

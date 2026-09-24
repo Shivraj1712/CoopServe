@@ -203,8 +203,17 @@ export async function rateBooking(req, res) {
 export async function getCustomerBookings(req, res) {
   try {
     const customerId = req.user.id;
+    const { status, activeOnly } = req.query;
+
+    const where = { customerId };
+    if (activeOnly === "true") {
+      where.status = { not: "CANCELLED" };
+    } else if (status) {
+      where.status = status;
+    }
+
     const bookings = await prisma.booking.findMany({
-      where: { customerId },
+      where,
       include: {
         worker: {
           include: {

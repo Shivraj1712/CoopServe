@@ -16,7 +16,7 @@ const SERVICE_RATES = {
 export async function createBooking(req, res) {
   try {
     const customerId = req.user.id;
-    const { serviceCategory, lat, lng, address, scheduledAt } = req.body;
+    const { serviceCategory, workerId, lat, lng, address, scheduledAt } = req.body;
 
     if (!serviceCategory) {
       return res.status(400).json({ error: "Service category is required" });
@@ -31,22 +31,40 @@ export async function createBooking(req, res) {
     const commissionAmount = Math.round(amount * 0.1); // 10% Co-op federation fund
     const workerPayout = Math.round(amount * 0.9);      // 90% Worker earnings
 
-    // Find all verified and available workers for this skill category
-    const availableWorkers = await prisma.worker.findMany({
-      where: {
-        skillCategory: serviceCategory,
-        verificationStatus: "APPROVED",
-        isAvailable: true
-      },
-      include: {
-        user: { select: { name: true, phone: true, email: true } },
-        cooperative: { select: { name: true, federationName: true } }
-      }
-    });
+    let matchedWorker = null;
 
-    // Proximity matching using Haversine algorithm in mapsService
-    const nearestWorkers = mapsService.findNearestWorkers(userLat, userLng, availableWorkers);
-    const matchedWorker = nearestWorkers.length > 0 ? nearestWorkers[0] : null;
+    if (workerId) {
+      // Manual selection by customer
+      const foundWorker = await prisma.worker.findUnique({
+        where: { id: workerId },
+        include: {
+          user: { select: { name: true, phone: true, email: true } },
+          cooperative: { select: { name: true, federationName: true } }
+        }
+      });
+      if (foundWorker) {
+        const dist = mapsService.findNearestWorkers(userLat, userLng, [foundWorker]);
+        matchedWorker = dist.length > 0 ? dist[0] : { ...foundWorker, distanceKm: 0.5 };
+      }
+    }
+
+    if (!matchedWorker) {
+      // Fallback: auto-match nearest available worker
+      const availableWorkers = await prisma.worker.findMany({
+        where: {
+          skillCategory: serviceCategory,
+          verificationStatus: "APPROVED",
+          isAvailable: true
+        },
+        include: {
+          user: { select: { name: true, phone: true, email: true } },
+          cooperative: { select: { name: true, federationName: true } }
+        }
+      });
+
+      const nearestWorkers = mapsService.findNearestWorkers(userLat, userLng, availableWorkers);
+      matchedWorker = nearestWorkers.length > 0 ? nearestWorkers[0] : null;
+    }
 
     const booking = await prisma.booking.create({
       data: {
@@ -78,15 +96,15 @@ export async function createBooking(req, res) {
     }
 
     return res.status(201).json({
-      message: matchedWorker ? "Worker matched successfully!" : "Booking created! Searching for nearby worker...",
+      message: matchedWorker ? `Selected worker ${matchedWorker.user.name} assigned!` : "Booking created! Searching for nearby worker...",
       booking,
       matchedWorker: matchedWorker ? {
         id: matchedWorker.id,
         name: matchedWorker.user.name,
         phone: matchedWorker.user.phone,
         ratingAvg: matchedWorker.ratingAvg,
-        distanceKm: matchedWorker.distanceKm,
-        cooperativeName: matchedWorker.cooperative.name
+        distanceKm: matchedWorker.distanceKm || 0.5,
+        cooperativeName: matchedWorker.cooperative?.name || "Gujarat Labour Co-op"
       } : null
     });
   } catch (error) {

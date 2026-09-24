@@ -1,4 +1,5 @@
 import prisma from "../prisma.js";
+import { mapsService } from "../services/mapsService.js";
 
 export async function onboardWorker(req, res) {
   try {
@@ -111,5 +112,35 @@ export async function getWorkerBookings(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ error: "Failed to fetch worker bookings" });
+  }
+}
+
+export async function getAvailableWorkers(req, res) {
+  try {
+    const { category, lat, lng } = req.query;
+    const userLat = parseFloat(lat) || 23.0225;
+    const userLng = parseFloat(lng) || 72.5714;
+
+    const where = {
+      verificationStatus: "APPROVED",
+      isAvailable: true
+    };
+    if (category) {
+      where.skillCategory = category;
+    }
+
+    const workers = await prisma.worker.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+        cooperative: { select: { id: true, name: true, federationName: true } }
+      }
+    });
+
+    const formattedWorkers = mapsService.findNearestWorkers(userLat, userLng, workers);
+    return res.json({ workers: formattedWorkers });
+  } catch (error) {
+    console.error("Get Available Workers Error:", error);
+    return res.status(500).json({ error: "Failed to fetch available workers" });
   }
 }

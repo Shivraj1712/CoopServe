@@ -78,6 +78,11 @@ export default function CustomerDashboard() {
   const [userLng, setUserLng] = useState(72.562);
   const [creating, setCreating] = useState(false);
 
+  // Worker Selection State
+  const [availableWorkers, setAvailableWorkers] = useState([]);
+  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
+  const [loadingWorkers, setLoadingWorkers] = useState(false);
+
   // Search
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -105,6 +110,26 @@ export default function CustomerDashboard() {
     }
   };
 
+  const fetchAvailableWorkers = async (categoryName) => {
+    setLoadingWorkers(true);
+    try {
+      const res = await api.get("/workers/available", {
+        params: { category: categoryName, lat: userLat, lng: userLng }
+      });
+      const workersList = res.data.workers || [];
+      setAvailableWorkers(workersList);
+      if (workersList.length > 0) {
+        setSelectedWorkerId(workersList[0].id);
+      } else {
+        setSelectedWorkerId(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch available workers", err);
+    } finally {
+      setLoadingWorkers(false);
+    }
+  };
+
   useEffect(() => {
     fetchBookings();
   }, []);
@@ -126,7 +151,9 @@ export default function CustomerDashboard() {
 
   const handleOpenBooking = (category) => {
     setSelectedService(category);
+    setSelectedWorkerId(null);
     setSubPage("book_service");
+    fetchAvailableWorkers(category.name);
   };
 
   const handleConfirmBooking = async () => {
@@ -135,6 +162,7 @@ export default function CustomerDashboard() {
     try {
       const res = await api.post("/bookings/create", {
         serviceCategory: selectedService.name,
+        workerId: selectedWorkerId,
         address,
         lat: userLat,
         lng: userLng
@@ -143,7 +171,7 @@ export default function CustomerDashboard() {
       setToast({
         open: true,
         message: res.data.matchedWorker
-          ? `Matched with nearby verified worker ${res.data.matchedWorker.name} (${res.data.matchedWorker.distanceKm} km away)!`
+          ? `Booking confirmed with worker ${res.data.matchedWorker.name} (${res.data.matchedWorker.distanceKm} km away)!`
           : "Booking created! Searching for nearby available workers...",
         severity: "success"
       });
@@ -249,7 +277,7 @@ export default function CustomerDashboard() {
                     Book {selectedService.name} Service
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Auto-matching with verified workers from Gujarat Labour Cooperative Federation.
+                    Select a verified service provider manually or let the system assign the nearest worker.
                   </Typography>
                 </Box>
               </Box>
@@ -265,13 +293,13 @@ export default function CustomerDashboard() {
                     fullWidth
                     label="Service Address"
                     multiline
-                    rows={3}
+                    rows={2}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    sx={{ mb: 3 }}
+                    sx={{ mb: 2 }}
                   />
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid item xs={6}>
                       <TextField
                         fullWidth
@@ -289,6 +317,82 @@ export default function CustomerDashboard() {
                       />
                     </Grid>
                   </Grid>
+
+                  {/* WORKER MANUAL SELECTION SECTION */}
+                  <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1, color: "#0F172A" }}>
+                    Select Service Provider (Worker)
+                  </Typography>
+
+                  {loadingWorkers ? (
+                    <Box sx={{ py: 3, textAlign: "center" }}>
+                      <CircularProgress size={28} />
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Loading available verified workers...
+                      </Typography>
+                    </Box>
+                  ) : availableWorkers.length === 0 ? (
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 2 }}>
+                      <Typography variant="body2" color="warning.main" fontWeight={600}>
+                        No workers directly available for this trade category. System will auto-assign when booking is placed.
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                      {availableWorkers.map((w) => {
+                        const isSelected = selectedWorkerId === w.id;
+                        return (
+                          <Paper
+                            key={w.id}
+                            elevation={0}
+                            onClick={() => setSelectedWorkerId(w.id)}
+                            sx={{
+                              p: 2,
+                              cursor: "pointer",
+                              borderRadius: 2,
+                              border: isSelected ? "2px solid #2563EB" : "1px solid #E2E8F0",
+                              bgcolor: isSelected ? "#EFF6FF" : "#FFFFFF",
+                              transition: "all 0.15s ease",
+                              "&:hover": { borderColor: "#2563EB" }
+                            }}
+                          >
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                                <Avatar sx={{ bgcolor: isSelected ? "#1E3A8A" : "#64748B", fontWeight: 700 }}>
+                                  {w.user?.name?.[0]}
+                                </Avatar>
+                                <Box>
+                                  <Typography variant="subtitle2" fontWeight={700} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                    {w.user?.name} <VerifiedIcon color="primary" fontSize="inherit" />
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    {w.cooperative?.name || "Labour Co-op"} • {w.experienceYears || 3} yrs exp
+                                  </Typography>
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
+                                    <Rating value={w.ratingAvg || 5} precision={0.1} readOnly size="small" />
+                                    <Typography variant="caption" fontWeight={700}>
+                                      ({w.ratingAvg || 5.0}⭐)
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </Box>
+
+                              <Box sx={{ textAlign: "right" }}>
+                                <Chip
+                                  label={`~${w.distanceKm || 0.5} km away`}
+                                  size="small"
+                                  color={isSelected ? "primary" : "default"}
+                                  sx={{ fontWeight: 700, mb: 0.5 }}
+                                />
+                                <Typography variant="caption" display="block" color={isSelected ? "primary.main" : "text.secondary"} fontWeight={700}>
+                                  {isSelected ? "✓ SELECTED" : "Click to Select"}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        );
+                      })}
+                    </Box>
+                  )}
                 </Grid>
 
                 <Grid item xs={12} md={5}>
@@ -323,7 +427,7 @@ export default function CustomerDashboard() {
                       disabled={creating}
                       sx={{ py: 1.5, fontWeight: 700, borderRadius: 1.5 }}
                     >
-                      {creating ? "Matching Nearby Worker..." : "Confirm Booking & Auto-Match Worker"}
+                      {creating ? "Creating Booking..." : "Confirm Booking with Selected Worker"}
                     </Button>
                   </Paper>
                 </Grid>
